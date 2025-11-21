@@ -21,6 +21,7 @@ defmodule OrchardResend.ResenderDaemon do
   @default_concurrency 20
   @default_timeout 60_000
   @default_batch_delay 1_000
+  @default_from_date "2025-11-19T00:00:00Z"  # Only process callbacks from this date onwards
 
   # Client API
 
@@ -53,6 +54,7 @@ defmodule OrchardResend.ResenderDaemon do
     concurrency = Keyword.get(opts, :concurrency, @default_concurrency)
     timeout = Keyword.get(opts, :timeout, @default_timeout)
     batch_delay = Keyword.get(opts, :batch_delay, @default_batch_delay)
+    from_date = Keyword.get(opts, :from_date, @default_from_date)
 
     state = %{
       check_interval: check_interval,
@@ -60,6 +62,7 @@ defmodule OrchardResend.ResenderDaemon do
       concurrency: concurrency,
       timeout: timeout,
       batch_delay: batch_delay,
+      from_date: from_date,
       paused: false,
       last_run: nil,
       total_processed: 0,
@@ -68,6 +71,7 @@ defmodule OrchardResend.ResenderDaemon do
     }
 
     Logger.info("ResenderDaemon started with check_interval: #{check_interval}ms")
+    Logger.info("Processing callbacks from: #{from_date}")
 
     # Schedule first check
     schedule_next_check(check_interval)
@@ -86,18 +90,19 @@ defmodule OrchardResend.ResenderDaemon do
   def handle_info(:check_and_resend, state) do
     Logger.info("Daemon checking for pending callbacks...")
 
-    # Get count of pending callbacks
-    pending_count = OrchardResend.Resender.get_pending_count(nil, nil, [])
+    # Get count of pending callbacks with from_date filter
+    pending_count = OrchardResend.Resender.get_pending_count(nil, nil, from_date: state.from_date)
 
     if pending_count > 0 do
       Logger.info("Found #{pending_count} pending callbacks, starting resend...")
 
-      # Run resend
+      # Run resend with from_date filter
       result = OrchardResend.Resender.resend_callbacks(nil, nil,
         batch_size: state.batch_size,
         concurrency: state.concurrency,
         timeout: state.timeout,
-        batch_delay: state.batch_delay
+        batch_delay: state.batch_delay,
+        from_date: state.from_date
       )
 
       case result do
@@ -137,7 +142,8 @@ defmodule OrchardResend.ResenderDaemon do
       total_failed: state.total_failed,
       check_interval: state.check_interval,
       batch_size: state.batch_size,
-      concurrency: state.concurrency
+      concurrency: state.concurrency,
+      from_date: state.from_date
     }
     {:reply, status, state}
   end
