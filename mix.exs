@@ -7,7 +7,8 @@ defmodule OrchardResend.MixProject do
       version: "0.1.0",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      releases: releases()
     ]
   end
 
@@ -27,6 +28,15 @@ defmodule OrchardResend.MixProject do
       {:jason, "~> 1.4"},
       {:ecto_sql, "~> 3.12"},
       {:hackney, "~> 1.23"}
+    ]
+  end
+
+  defp releases do
+    [
+      orchard_resend: [
+        include_executables_for: [:unix],
+        applications: [runtime_tools: :permanent]
+      ]
     ]
   end
 end
